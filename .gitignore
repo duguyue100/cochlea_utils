@@ -1,0 +1,6 @@
+*.pyc
+*.mat
+*.wav
+*.npy
+*.pkl
+*.npz
