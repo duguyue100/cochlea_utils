@@ -46,14 +46,18 @@ def loadaerdat(filename=None, curr_directory=False, max_events=30000000):
                                                                        '.aedat file or a .dat file'
 
     token = '#!AER-DAT'
-    with open(filename, 'r') as f:
+    with open(filename, 'rb') as f:
         version = 2  # default version value
         for line in iter(f.readline, ''):
-            if line.startswith('#'):
-                if line[:len(token)] == token:
-                    version = float(line[len(token):])
-                bof = f.tell()
-            else:
+            try:
+                line = line.decode("utf-8")
+                if '#' in line:
+                    if line[:len(token)] == token:
+                        version = float(line[len(token):])
+                    bof = f.tell()
+                else:
+                    break
+            except Exception as e:
                 break
 
         num_bytes_per_event = 6
