@@ -49,15 +49,12 @@ def loadaerdat(filename=None, curr_directory=False, max_events=30000000):
     with open(filename, 'rb') as f:
         version = 2  # default version value
         for line in iter(f.readline, ''):
-            try:
-                line = line.decode("utf-8")
-                if '#' in line:
-                    if line[:len(token)] == token:
-                        version = float(line[len(token):])
-                    bof = f.tell()
-                else:
-                    break
-            except Exception as e:
+            line = line.decode("latin-1")
+            if line.startswith('#'):
+                if line[:len(token)] == token:
+                    version = float(line[len(token):])
+                bof = f.tell()
+            else:
                 break
 
         num_bytes_per_event = 6
