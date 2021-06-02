@@ -4,7 +4,7 @@ import os
 import warnings
 try:
     from tkFileDialog import askopenfilename
-except:
+except Exception:
     from tkinter.filedialog import askopenfilename
 import numpy as np
 
@@ -238,4 +238,5 @@ def get_labels(timestamps, itd_indices, num_streams=7):
 if __name__ == '__main__':
     test_timestamps, test_addresses = loadaerdat()
     test_timestamps, test_ears, test_types = decode_ams1b(test_timestamps, test_addresses)
+    print(test_timestamps.shape, test_ears, test_types)
     print('Done')

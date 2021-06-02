@@ -23,6 +23,7 @@ def spike_count_features_by_time(timestamps, addresses, twl=0.005, tws=0.005, nb
     time_in_stream = timestamps[-1] - timestamps[0]
     nb_bins = int(np.ceil(time_in_stream / tws))
     data_array_to_return = np.zeros(shape=(nb_bins, nb_channels), dtype='float32')
+    feature_times = np.zeros(shape=(nb_bins,), dtype="float32")
     current_time = timestamps[0]
     frame = 0
     while True:
@@ -33,11 +34,16 @@ def spike_count_features_by_time(timestamps, addresses, twl=0.005, tws=0.005, nb
             current_addresses = addresses[indices]
             data_array_to_return[frame] = np.histogram(current_addresses, bins=range(nb_channels + 1))[0] \
                 .astype(np.float32, copy=False)
+
+            # get feature time
+            selected_ts = timestamps[indices]
+            feature_times[frame] = selected_ts[0]
+
         frame += 1
         current_time += tws
         if frame == nb_bins:
             break
-    return data_array_to_return
+    return data_array_to_return, feature_times
 
 
 def exponential_features_by_time(timestamps, addresses, twl=0.005, tws=0.005, nb_channels=64, bunching='average',
@@ -101,13 +107,18 @@ def spike_count_features_by_events(timestamps, addresses, ewl=100, ews=100, nb_c
     """
     nb_bins = int(np.ceil(timestamps.shape[0] / ews))
     data_array_to_return = np.zeros(shape=(nb_bins, nb_channels), dtype='float32')
+    feature_times = np.zeros(shape=(nb_bins,), dtype="float32")
     frame = 0
     while frame < nb_bins:
         current_addresses = addresses[frame * ews:frame * ews + ewl]
         data_array_to_return[frame] = np.histogram(current_addresses, bins=range(nb_channels + 1))[0] \
             .astype(np.float32, copy=False)
+        # get feature time
+        selected_ts = timestamps[frame * ews:frame * ews + ewl]
+        feature_times[frame] = selected_ts[0]
+
         frame += 1
-    return data_array_to_return
+    return data_array_to_return, selected_ts
 
 
 def exponential_features_by_events(timestamps, addresses, ewl=100, ews=100, nb_channels=64, bunching='average',
@@ -192,8 +203,11 @@ def update_feature(previous_feature, pts, cts, channel, tau=0.005):
     return feature_to_return
 
 
-def filter_data(timestamps, addresses, filter_neuron=True, sort_time_stamps=True, filter_neuron_value=1,
-                print_log=True, remove_double_spikes=False, remove_beeps=False, beep_length=0.1):
+def filter_data(timestamps, addresses, filter_neuron=True,
+                sort_time_stamps=True, filter_neuron_value=1,
+                print_log=True, remove_double_spikes=False,
+                remove_beeps=False, beep_lengths=[0.1, 0.15],
+                iterative_filtering=False):
     if filter_neuron:
         unique_neurons = np.unique(addresses[:, 1])
         if filter_neuron_value not in unique_neurons:
@@ -208,7 +222,54 @@ def filter_data(timestamps, addresses, filter_neuron=True, sort_time_stamps=True
         addresses = addresses[addresses[:, 1] == filter_neuron_value]
 
     if remove_beeps:
-        indices = np.logical_and(timestamps > timestamps[0] + beep_length, timestamps < timestamps[-1] - beep_length)
+        indices = np.logical_and(timestamps > timestamps[0] + beep_lengths[0], timestamps < timestamps[-1] - beep_lengths[1])
+        addresses = addresses[indices]
+        timestamps = timestamps[indices]
+
+    if iterative_filtering:
+        # front filtering
+        step = 0.001
+        current_time = 0
+        num_events = timestamps.shape[0]
+        filter_p = 0.0
+        while (filter_p <= 0.03):
+            # calculate num
+            num_filtered_events = \
+                (timestamps < timestamps[0]+current_time).sum()
+            #  filter_indices = np.logical_and(
+            #      timestamps > timestamps[0]+current_time,
+            #      timestamps < timestamps[0]+current_time+step)
+            #  num_filtered_events = filter_indices.sum()
+
+            filter_p = num_filtered_events/num_events
+
+            current_time += step
+        current_time -= step
+
+        indices = (timestamps > timestamps[0] + current_time)
+        addresses = addresses[indices]
+        timestamps = timestamps[indices]
+
+        # back filtering
+        current_time = 0
+        filter_p = 0.0
+        while (filter_p <= 0.03):
+            # calculate num
+            num_filtered_events = \
+                (timestamps > timestamps[-1]-current_time).sum()
+
+            #  filter_indices = np.logical_and(
+            #      timestamps > timestamps[-1]-current_time-step,
+            #      timestamps < timestamps[-1]-current_time)
+            #  num_filtered_events = filter_indices.sum()
+
+            filter_p = num_filtered_events/num_events
+
+            #  print("backward filter p:", current_time, current_time+step, filter_p)
+            current_time += step
+        current_time -= step
+
+        indices = (timestamps < timestamps[-1] - current_time)
         addresses = addresses[indices]
         timestamps = timestamps[indices]
 
