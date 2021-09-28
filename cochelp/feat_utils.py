@@ -37,7 +37,8 @@ def spike_count_features_by_time(timestamps, addresses, twl=0.005, tws=0.005, nb
 
             # get feature time
             selected_ts = timestamps[indices]
-            feature_times[frame] = selected_ts[0]
+            # use last time stamp as feature time makes more sense
+            feature_times[frame] = selected_ts[-1]
 
         frame += 1
         current_time += tws
@@ -115,10 +116,10 @@ def spike_count_features_by_events(timestamps, addresses, ewl=100, ews=100, nb_c
             .astype(np.float32, copy=False)
         # get feature time
         selected_ts = timestamps[frame * ews:frame * ews + ewl]
-        feature_times[frame] = selected_ts[0]
+        feature_times[frame] = selected_ts[-1]
 
         frame += 1
-    return data_array_to_return, selected_ts
+    return data_array_to_return, feature_times
 
 
 def exponential_features_by_events(timestamps, addresses, ewl=100, ews=100, nb_channels=64, bunching='average',
